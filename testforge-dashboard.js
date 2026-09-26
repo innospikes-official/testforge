@@ -200,8 +200,22 @@ function readBody(req) {
 }
 
 function runDetached(cmd, args) {
-  const child = spawn(cmd, args, { detached: true, stdio: "ignore", shell: true });
+  const child = spawn(cmd, args, { detached: true, stdio: "ignore" });
   child.unref();
+}
+
+// A page open in the same browser (any site, any tab) can still submit a
+// cross-origin POST to this localhost port — the browser doesn't block that
+// by default. Require the request to actually originate from this dashboard.
+function isSameOrigin(req, port) {
+  const header = req.headers.origin || req.headers.referer;
+  if (!header) return false;
+  try {
+    const url = new URL(header);
+    return (url.hostname === "localhost" || url.hostname === "127.0.0.1") && Number(url.port) === port;
+  } catch {
+    return false;
+  }
 }
 
 function startDashboard({ workdir = "./testforge-workspace", port = 4000 } = {}) {
@@ -209,6 +223,12 @@ function startDashboard({ workdir = "./testforge-workspace", port = 4000 } = {})
     if (req.url === "/api/history") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(loadHistory(workdir)));
+      return;
+    }
+
+    if (req.method === "POST" && (req.url === "/api/generate" || req.url === "/api/run") && !isSameOrigin(req, port)) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("Forbidden: cross-origin request rejected");
       return;
     }
 
