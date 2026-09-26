@@ -267,11 +267,32 @@ ${JSON.stringify(this.formatResultsTable(results), null, 2)}`;
     const mdPath = "./testforge-workspace/reports/test-report.md";
     fs.writeFileSync(mdPath, reportContent);
 
+    this.appendHistory(stats, results);
+
     console.log(`✅ Reports generated:`);
     console.log(`   HTML: ${htmlPath}`);
     console.log(`   Markdown: ${mdPath}`);
 
     return { stats, analysis: analysisText };
+  }
+
+  /**
+   * Append this run to reports/history.json so the dashboard can chart
+   * trends across runs. Keeps the last 200 runs.
+   */
+  appendHistory(stats, results) {
+    const historyPath = "./testforge-workspace/reports/history.json";
+    const history = fs.existsSync(historyPath)
+      ? JSON.parse(fs.readFileSync(historyPath, "utf-8"))
+      : [];
+
+    history.push({
+      timestamp: new Date().toISOString(),
+      stats,
+      failures: results.filter(r => r.status === "failed").map(r => ({ id: r.id, title: r.title, tool: r.tool, error: r.error })),
+    });
+
+    fs.writeFileSync(historyPath, JSON.stringify(history.slice(-200), null, 2));
   }
 
   /**

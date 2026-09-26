@@ -247,6 +247,15 @@ Generated: ${new Date().toISOString()}
   }
 
   /**
+   * $ testforge dashboard [--port 4000]
+   */
+  async dashboard(args) {
+    const port = parseInt(this.getArg(args, '--port') || '4000', 10);
+    const { startDashboard } = require('./testforge-dashboard');
+    startDashboard({ port });
+  }
+
+  /**
    * $ testforge config --list
    */
   async config(args) {
@@ -293,6 +302,10 @@ COMMANDS:
   testforge report [--format FORMAT]
     View test reports
     Format: html, json, csv (default: html)
+
+  testforge dashboard [--port PORT]
+    Launch live trend dashboard (default port 4000)
+    Reads testforge-workspace/reports/history.json, built up as 'run' executes
 
   testforge config [--list] [--add-plugin PLUGIN]
     Manage configuration
@@ -396,6 +409,9 @@ For more info: https://github.com/testforge
           break;
         case 'report':
           await this.report(args.slice(1));
+          break;
+        case 'dashboard':
+          await this.dashboard(args.slice(1));
           break;
         case 'config':
           await this.config(args.slice(1));
