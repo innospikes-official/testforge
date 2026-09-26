@@ -1,0 +1,6 @@
+node_modules/
+.env
+.env.local
+testforge-workspace/
+INNO_TRAVEL_QA_ANALYSIS.md
+qa-analysis-dashboard.html

@@ -1,0 +1,296 @@
+{
+  "app": {
+    "name": "inno-travel",
+    "displayName": "Inno Travel Booking Platform",
+    "type": "full-stack",
+    "description": "Travel booking platform with payment integration",
+    "baseUrl": "https://travels.innospikes.com",
+    "apiBase": "https://api.innospikes.com",
+    "version": "1.0.0"
+  },
+
+  "documentation": {
+    "source": "local",
+    "path": "./docs",
+    "urls": [
+      "https://travels.innospikes.com/docs",
+      "https://api.innospikes.com/docs"
+    ]
+  },
+
+  "modules": [
+    {
+      "name": "authentication",
+      "displayName": "User Authentication",
+      "type": "web",
+      "pages": ["login", "signup", "forgot-password", "2fa"],
+      "priority": "p0",
+      "estimatedTestCases": 25
+    },
+    {
+      "name": "search",
+      "displayName": "Travel Search",
+      "type": "web",
+      "pages": ["search", "results", "filters"],
+      "priority": "p0",
+      "estimatedTestCases": 35
+    },
+    {
+      "name": "booking",
+      "displayName": "Booking Process",
+      "type": "web",
+      "pages": ["checkout", "passenger-details", "seat-selection", "payment"],
+      "priority": "p0",
+      "estimatedTestCases": 45
+    },
+    {
+      "name": "payment",
+      "displayName": "Payment Processing",
+      "type": "api",
+      "endpoints": [
+        "/api/v1/payment/create",
+        "/api/v1/payment/verify",
+        "/api/v1/payment/refund"
+      ],
+      "externalServices": ["razorpay"],
+      "priority": "p0",
+      "estimatedTestCases": 40
+    },
+    {
+      "name": "notifications",
+      "displayName": "User Notifications",
+      "type": "api",
+      "endpoints": [
+        "/api/v1/notification/send",
+        "/api/v1/notification/status"
+      ],
+      "externalServices": ["sms", "email", "whatsapp"],
+      "priority": "p1",
+      "estimatedTestCases": 30
+    },
+    {
+      "name": "location",
+      "displayName": "Location & GPS",
+      "type": "mobile",
+      "features": ["gps-tracking", "map-display", "qr-scan"],
+      "priority": "p1",
+      "estimatedTestCases": 25
+    },
+    {
+      "name": "reporting",
+      "displayName": "Admin Reporting",
+      "type": "web",
+      "pages": ["dashboard", "analytics", "reports", "export"],
+      "priority": "p2",
+      "estimatedTestCases": 30
+    },
+    {
+      "name": "performance",
+      "displayName": "Performance Testing",
+      "type": "load",
+      "endpoints": [
+        "/search",
+        "/api/v1/payment/verify",
+        "/api/v1/notification/send"
+      ],
+      "priority": "p1",
+      "estimatedTestCases": 15
+    }
+  ],
+
+  "externalServices": [
+    {
+      "name": "razorpay",
+      "type": "payment",
+      "testMode": true,
+      "apiKey": "${RAZORPAY_KEY}",
+      "apiSecret": "${RAZORPAY_SECRET}"
+    },
+    {
+      "name": "sms",
+      "type": "notification",
+      "provider": "twilio",
+      "testMode": true
+    },
+    {
+      "name": "email",
+      "type": "notification",
+      "provider": "sendgrid",
+      "testMode": true
+    },
+    {
+      "name": "whatsapp",
+      "type": "notification",
+      "provider": "twilio",
+      "testMode": true
+    },
+    {
+      "name": "gps",
+      "type": "location",
+      "provider": "google-maps",
+      "testMode": true
+    }
+  ],
+
+  "testingTools": [
+    {
+      "name": "playwright",
+      "enabled": true,
+      "version": "1.40.0",
+      "browsers": ["chromium", "firefox", "webkit"],
+      "headless": true,
+      "slowMo": 0
+    },
+    {
+      "name": "rest-assured",
+      "enabled": true,
+      "version": "4.5.1",
+      "language": "java"
+    },
+    {
+      "name": "k6",
+      "enabled": true,
+      "version": "0.47.0",
+      "vus": 10,
+      "duration": "30s"
+    },
+    {
+      "name": "jmeter",
+      "enabled": false,
+      "version": "5.6.1"
+    },
+    {
+      "name": "browserstack",
+      "enabled": true,
+      "version": "1.0.0",
+      "devices": [
+        "iPhone 14",
+        "iPhone 13",
+        "Samsung Galaxy S22",
+        "Pixel 6"
+      ]
+    }
+  ],
+
+  "testCaseCategories": {
+    "functional": {
+      "description": "Feature functionality tests",
+      "automatable": true,
+      "estimatedPercentage": 40
+    },
+    "integration": {
+      "description": "System integration tests",
+      "automatable": true,
+      "estimatedPercentage": 15
+    },
+    "api": {
+      "description": "API endpoint tests",
+      "automatable": true,
+      "estimatedPercentage": 20
+    },
+    "mobile": {
+      "description": "Mobile-specific tests",
+      "automatable": true,
+      "estimatedPercentage": 10
+    },
+    "performance": {
+      "description": "Performance & load tests",
+      "automatable": true,
+      "estimatedPercentage": 5
+    },
+    "security": {
+      "description": "Security & vulnerability tests",
+      "automatable": false,
+      "estimatedPercentage": 5
+    },
+    "exploratory": {
+      "description": "Manual exploratory testing",
+      "automatable": false,
+      "estimatedPercentage": 3
+    },
+    "regression": {
+      "description": "Regression testing",
+      "automatable": true,
+      "estimatedPercentage": 2
+    }
+  },
+
+  "ci_cd": {
+    "platform": "github-actions",
+    "triggers": {
+      "onPullRequest": true,
+      "onMergeToMain": true,
+      "scheduled": "0 2 * * *",
+      "onDemand": true
+    },
+    "parallelJobs": 4,
+    "timeoutMinutes": 60
+  },
+
+  "reporting": {
+    "formats": ["html", "json", "csv", "junit"],
+    "outputPath": "./testforge-workspace/reports",
+    "retention": {
+      "days": 30,
+      "maxReports": 100
+    },
+    "notifications": {
+      "onFailure": "email",
+      "slack": {
+        "enabled": true,
+        "channel": "#qa-results",
+        "webhookUrl": "${SLACK_WEBHOOK}"
+      }
+    }
+  },
+
+  "priorities": {
+    "p0": {
+      "description": "Critical - Must test",
+      "automatable": true,
+      "frequency": "every-run"
+    },
+    "p1": {
+      "description": "High - Should test",
+      "automatable": true,
+      "frequency": "daily"
+    },
+    "p2": {
+      "description": "Medium - Nice to test",
+      "automatable": true,
+      "frequency": "weekly"
+    },
+    "p3": {
+      "description": "Low - Optional tests",
+      "automatable": true,
+      "frequency": "monthly"
+    }
+  },
+
+  "testDataSeeds": {
+    "users": [
+      {
+        "email": "test@example.com",
+        "password": "${TEST_USER_PASSWORD}",
+        "role": "user"
+      }
+    ],
+    "testRoutes": [
+      {
+        "from": "Hyderabad",
+        "to": "Bangalore",
+        "departureTime": "10:00"
+      }
+    ]
+  },
+
+  "successCriteria": {
+    "minPassRate": 95,
+    "maxFailureToReport": 3,
+    "performanceThresholds": {
+      "pageLoadTime": 3000,
+      "apiResponseTime": 1000,
+      "throughput": 100
+    }
+  }
+}
