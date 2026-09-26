@@ -7,7 +7,8 @@
 ### Core Framework
 - `testforge-core.js` - Main framework engine
 - `testforge-cli.js` - Command-line interface
-- `testforge-plugins.js` - Tool adapters (Playwright, Rest Assured, K6, JMeter, BrowserStack, Postman)
+- `testforge-plugins.js` - Tool adapters (Playwright, Rest Assured, K6, JMeter, BrowserStack, Postman) — each runs the real tool and parses its actual output
+- `testforge-llm.js` - LLM connector (Claude, OpenAI, GitHub Copilot, or any OpenAI-compatible endpoint)
 
 ### Configuration
 - `testforge-configs-example.json` - Complete configuration template
@@ -38,6 +39,21 @@ node testforge-cli.js run --generated --parallel
 # 5. View report
 open testforge-workspace/reports/test-report.html
 ```
+
+## 🔌 LLM Provider
+
+Set via `config.llm` (in `app.config.json`) or env vars. Default provider is Anthropic.
+
+```json
+"llm": { "provider": "openai", "model": "gpt-4o" }
+```
+
+| Provider | Env vars |
+|---|---|
+| `anthropic` (default) | `ANTHROPIC_API_KEY` |
+| `openai` | `OPENAI_API_KEY` (or `LLM_API_KEY`) |
+| `copilot` | `COPILOT_API_KEY` (or `LLM_API_KEY`) |
+| `openai-compatible` | `LLM_API_KEY`, `LLM_BASE_URL` (Azure OpenAI, local vLLM/Ollama, etc.) |
 
 ## 📖 Documentation Order
 

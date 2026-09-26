@@ -170,7 +170,7 @@ ${this.getTestCasesSummary(testCases)}
   /**
    * $ testforge run [--generated] [--parallel]
    */
-  async run(args) {
+  async runTests(args) {
     const useGenerated = args.includes('--generated');
     const parallel = !args.includes('--serial');
 
@@ -192,19 +192,15 @@ ${this.getTestCasesSummary(testCases)}
 
     console.log(`🚀 Running ${testCases.length} tests (${parallel ? 'parallel' : 'serial'})...`);
 
-    // Mock plugin execution (in real implementation, load actual plugins)
-    this.framework.registerPlugin('playwright', {
-      async execute(cases) {
-        // Simulate test execution
-        return cases.map((tc, i) => ({
-          id: tc.id,
-          title: tc.title,
-          status: Math.random() > 0.1 ? 'passed' : 'failed',
-          duration: Math.floor(Math.random() * 5000) + 500,
-          error: Math.random() > 0.1 ? null : 'Element not found'
-        }));
-      }
-    });
+    // Register the real tool adapters — each shells out to its actual runner.
+    const plugins = require('./testforge-plugins');
+    const pluginConfig = { ...config, ...(config.pluginConfig || {}) };
+    this.framework.registerPlugin('playwright', new plugins.PlaywrightPlugin(pluginConfig));
+    this.framework.registerPlugin('rest-assured', new plugins.RestAssuredPlugin(pluginConfig));
+    this.framework.registerPlugin('k6', new plugins.K6Plugin(pluginConfig));
+    this.framework.registerPlugin('jmeter', new plugins.JMeterPlugin(pluginConfig));
+    this.framework.registerPlugin('browserstack', new plugins.BrowserStackPlugin(pluginConfig));
+    this.framework.registerPlugin('postman', new plugins.PostmanPlugin(pluginConfig));
 
     // Run tests
     const results = await this.framework.runTests(testCases, { parallel });
@@ -396,7 +392,7 @@ For more info: https://github.com/testforge
           await this.generate(args.slice(1));
           break;
         case 'run':
-          await this.run(args.slice(1));
+          await this.runTests(args.slice(1));
           break;
         case 'report':
           await this.report(args.slice(1));

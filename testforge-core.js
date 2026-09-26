@@ -3,14 +3,21 @@
  * Universal testing framework with Claude AI integration
  */
 
-const Anthropic = require("@anthropic-ai/sdk");
 const fs = require("fs");
 const path = require("path");
+const { createLLMClient } = require("./testforge-llm");
+
+// LLM output sometimes wraps JSON in ```json fences or adds prose around it.
+function extractJson(text) {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidate = fenced ? fenced[1] : text;
+  return JSON.parse(candidate.trim());
+}
 
 class TestForge {
   constructor(config) {
     this.config = config;
-    this.client = new Anthropic();
+    this.client = createLLMClient(config.llm || {});
     this.plugins = {};
     this.testCases = [];
     this.testResults = [];
@@ -36,9 +43,8 @@ class TestForge {
   async generateTestCases(docs, count = 100) {
     console.log(`🤖 Generating ${count} test cases from documentation...`);
 
-    const message = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 8000,
+    const text = await this.client.complete({
+      maxTokens: 8000,
       messages: [
         {
           role: "user",
@@ -70,7 +76,7 @@ Generate exactly ${count} test cases covering all critical functionality.`
     });
 
     try {
-      const testCases = JSON.parse(message.content[0].text);
+      const testCases = extractJson(text);
       this.testCases = testCases;
 
       // Save to file
@@ -102,9 +108,8 @@ Generate exactly ${count} test cases covering all critical functionality.`
     for (const [tool, cases] of Object.entries(byTool)) {
       console.log(`   Converting ${cases.length} tests for ${tool}...`);
 
-      const message = await this.client.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 8000,
+      const code = await this.client.complete({
+        maxTokens: 8000,
         messages: [
           {
             role: "user",
@@ -116,8 +121,6 @@ Generate production-ready ${tool} test code. Return only the code, no explanatio
           }
         ]
       });
-
-      const code = message.content[0].text;
       const fileName = `${tool}-tests-generated.${this.getFileExtension(tool)}`;
       const filePath = `./testforge-workspace/generated/${fileName}`;
 
@@ -172,9 +175,8 @@ Generate production-ready ${tool} test code. Return only the code, no explanatio
       return [];
     }
 
-    const message = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 4000,
+    const text = await this.client.complete({
+      maxTokens: 4000,
       messages: [
         {
           role: "user",
@@ -193,7 +195,7 @@ Format as JSON array of {testId, rootCause, suggestion, effortHours}.`
     });
 
     try {
-      const analysis = JSON.parse(message.content[0].text);
+      const analysis = extractJson(text);
 
       // Save analysis
       const filePath = "./testforge-workspace/reports/failure-analysis.json";
@@ -215,9 +217,8 @@ Format as JSON array of {testId, rootCause, suggestion, effortHours}.`
 
     const stats = this.calculateStats(results);
 
-    const message = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 3000,
+    const analysisText = await this.client.complete({
+      maxTokens: 3000,
       messages: [
         {
           role: "user",
@@ -253,13 +254,13 @@ Generated: ${new Date().toISOString()}
 - Avg Duration: ${stats.avgDuration}ms
 
 ## AI Analysis
-${message.content[0].text}
+${analysisText}
 
 ## Detailed Results
 ${JSON.stringify(this.formatResultsTable(results), null, 2)}`;
 
     // Save report
-    const htmlReport = this.generateHtmlReport(stats, message.content[0].text);
+    const htmlReport = this.generateHtmlReport(stats, analysisText);
     const htmlPath = "./testforge-workspace/reports/test-report.html";
     fs.writeFileSync(htmlPath, htmlReport);
 
@@ -270,7 +271,7 @@ ${JSON.stringify(this.formatResultsTable(results), null, 2)}`;
     console.log(`   HTML: ${htmlPath}`);
     console.log(`   Markdown: ${mdPath}`);
 
-    return { stats, analysis: message.content[0].text };
+    return { stats, analysis: analysisText };
   }
 
   /**
@@ -345,11 +346,12 @@ ${JSON.stringify(this.formatResultsTable(results), null, 2)}`;
    * Helper: Calculate statistics
    */
   calculateStats(results) {
+    const total = results.length;
     const passed = results.filter(r => r.status === 'passed').length;
     const failed = results.filter(r => r.status === 'failed').length;
     const skipped = results.filter(r => r.status === 'skipped').length;
-    const passRate = results.length > 0 ? Math.round((passed / results.length) * 100) : 0;
-    const avgDuration = results.reduce((acc, r) => acc + (r.duration || 0), 0) / results.length;
+    const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+    const avgDuration = total > 0 ? results.reduce((acc, r) => acc + (r.duration || 0), 0) / total : 0;
 
     return {
       passed,
@@ -357,7 +359,7 @@ ${JSON.stringify(this.formatResultsTable(results), null, 2)}`;
       skipped,
       passRate,
       avgDuration,
-      coverage: Math.round((passed / results.length) * 100)
+      coverage: passRate
     };
   }
 
