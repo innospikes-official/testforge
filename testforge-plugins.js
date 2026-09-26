@@ -200,9 +200,13 @@ class K6Plugin {
     }
 
     const summary = JSON.parse(fs.readFileSync(summaryPath, "utf-8"));
-    const checksRate = summary.metrics?.checks?.values?.rate ?? 1;
+    // k6's --summary-export is flat (metrics.checks.passes/.fails, not
+    // metrics.checks.values.rate) — there is no nested "values" object.
+    const checks = summary.metrics?.checks || {};
+    const checkTotal = (checks.passes ?? 0) + (checks.fails ?? 0);
+    const checksRate = checkTotal > 0 ? checks.passes / checkTotal : 1;
     const status = checksRate >= 0.99 ? "passed" : "failed";
-    const httpDuration = summary.metrics?.http_req_duration?.values || {};
+    const httpDuration = summary.metrics?.http_req_duration || {};
 
     return testCases.map((tc) => ({
       id: tc.id,
@@ -212,8 +216,8 @@ class K6Plugin {
       duration: Math.round(httpDuration.avg || 0),
       avgResponseTime: Math.round(httpDuration.avg || 0),
       p95ResponseTime: Math.round(httpDuration["p(95)"] || 0),
-      throughput: Math.round(summary.metrics?.http_reqs?.values?.rate || 0),
-      errorRate: 1 - checksRate,
+      throughput: Math.round(summary.metrics?.http_reqs?.rate || 0),
+      errorRate: Math.round((1 - checksRate) * 10000) / 10000,
     }));
   }
 
