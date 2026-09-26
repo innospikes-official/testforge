@@ -49,7 +49,7 @@ function render(history) {
     </tr>`).join("");
 
   const failureRows = failures.map(f => `
-    <tr><td>${f.id}</td><td>${escapeHtml(f.title)}</td><td>${f.tool}</td><td>${escapeHtml(f.error || "")}</td></tr>
+    <tr><td>${escapeHtml(f.id)}</td><td>${escapeHtml(f.title)}</td><td>${escapeHtml(f.tool)}</td><td>${escapeHtml(f.error || "")}</td></tr>
   `).join("") || `<tr><td colspan="4" style="color:#4caf50">No failures in latest run</td></tr>`;
 
   return `<!DOCTYPE html>
@@ -119,7 +119,7 @@ function startDashboard({ workdir = "./testforge-workspace", port = 4000 } = {})
     res.writeHead(200, { "Content-Type": "text/html" });
     res.end(render(history));
   });
-  server.listen(port, () => console.log(`📊 TestForge dashboard: http://localhost:${port}`));
+  server.listen(port, "127.0.0.1", () => console.log(`📊 TestForge dashboard: http://localhost:${port}`));
   return server;
 }
 
