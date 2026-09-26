@@ -288,6 +288,7 @@ ${JSON.stringify(this.formatResultsTable(results), null, 2)}`;
 
     history.push({
       timestamp: new Date().toISOString(),
+      project: this.config.name || this.config.displayName || "unnamed project",
       stats,
       failures: results.filter(r => r.status === "failed").map(r => ({ id: r.id, title: r.title, tool: r.tool, error: r.error })),
     });

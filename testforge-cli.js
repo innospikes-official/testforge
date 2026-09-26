@@ -126,36 +126,38 @@ class TestForgeCLI {
     const from = this.getArg(args, '--from') || 'docs';
     const count = parseInt(this.getArg(args, '--count') || '100');
 
-    // Load config
-    const config = this.loadConfig();
-    this.framework = new TestForge(config);
+    this.setStatus('generating', { detail: `generating ${count} test cases from ${from}` });
+    try {
+      // Load config
+      const config = this.loadConfig();
+      this.framework = new TestForge(config);
 
-    // Load documentation
-    let docs = '';
-    if (from === 'docs' && fs.existsSync('./docs')) {
-      console.log('📖 Reading documentation...');
-      docs = fs.readdirSync('./docs')
-        .filter(f => f.endsWith('.md'))
-        .map(f => fs.readFileSync(path.join('./docs', f), 'utf-8'))
-        .join('\n');
-    } else if (from.startsWith('http')) {
-      console.log('📥 Fetching documentation from URL...');
-      // In real implementation, fetch from URL
-      docs = `Documentation from ${from}`;
-    } else {
-      console.log('📄 Using provided content...');
-      docs = from;
-    }
+      // Load documentation
+      let docs = '';
+      if (from === 'docs' && fs.existsSync('./docs')) {
+        console.log('📖 Reading documentation...');
+        docs = fs.readdirSync('./docs')
+          .filter(f => f.endsWith('.md'))
+          .map(f => fs.readFileSync(path.join('./docs', f), 'utf-8'))
+          .join('\n');
+      } else if (from.startsWith('http')) {
+        console.log('📥 Fetching documentation from URL...');
+        // In real implementation, fetch from URL
+        docs = `Documentation from ${from}`;
+      } else {
+        console.log('📄 Using provided content...');
+        docs = from;
+      }
 
-    if (!docs) {
-      console.error('❌ No documentation found. Provide docs in ./docs/ or use --from url');
-      process.exit(1);
-    }
+      if (!docs) {
+        console.error('❌ No documentation found. Provide docs in ./docs/ or use --from url');
+        process.exit(1);
+      }
 
-    // Generate test cases
-    const testCases = await this.framework.generateTestCases(docs, count);
+      // Generate test cases
+      const testCases = await this.framework.generateTestCases(docs, count);
 
-    console.log(`
+      console.log(`
 ✅ Test cases generated!
 
 📊 Summary:
@@ -164,7 +166,27 @@ ${this.getTestCasesSummary(testCases)}
 📂 Saved to: testforge-workspace/configs/test-cases-generated.json
 
 🎬 Next: testforge run --generated
-    `);
+      `);
+    } finally {
+      this.setStatus('idle');
+    }
+  }
+
+  /**
+   * Persist a simple state file so the dashboard can show whether
+   * generate/run is currently in progress. Never throws — a status write
+   * failure shouldn't break the actual command.
+   */
+  setStatus(state, extra = {}) {
+    try {
+      fs.mkdirSync('./testforge-workspace', { recursive: true });
+      fs.writeFileSync(
+        './testforge-workspace/status.json',
+        JSON.stringify({ state, updatedAt: new Date().toISOString(), ...extra }, null, 2)
+      );
+    } catch {
+      // best-effort only
+    }
   }
 
   /**
@@ -174,46 +196,48 @@ ${this.getTestCasesSummary(testCases)}
     const useGenerated = args.includes('--generated');
     const parallel = !args.includes('--serial');
 
-    // Load config
-    const config = this.loadConfig();
-    this.framework = new TestForge(config);
+    this.setStatus('running', { detail: `running tests (${parallel ? 'parallel' : 'serial'})` });
+    try {
+      // Load config
+      const config = this.loadConfig();
+      this.framework = new TestForge(config);
 
-    // Load test cases
-    let testCases;
-    if (useGenerated && fs.existsSync('./testforge-workspace/configs/test-cases-generated.json')) {
-      testCases = JSON.parse(
-        fs.readFileSync('./testforge-workspace/configs/test-cases-generated.json', 'utf-8')
-      );
-    } else {
-      testCases = JSON.parse(
-        fs.readFileSync('./testforge-workspace/configs/test-cases.json', 'utf-8')
-      ).testCases;
-    }
+      // Load test cases
+      let testCases;
+      if (useGenerated && fs.existsSync('./testforge-workspace/configs/test-cases-generated.json')) {
+        testCases = JSON.parse(
+          fs.readFileSync('./testforge-workspace/configs/test-cases-generated.json', 'utf-8')
+        );
+      } else {
+        testCases = JSON.parse(
+          fs.readFileSync('./testforge-workspace/configs/test-cases.json', 'utf-8')
+        ).testCases;
+      }
 
-    console.log(`🚀 Running ${testCases.length} tests (${parallel ? 'parallel' : 'serial'})...`);
+      console.log(`🚀 Running ${testCases.length} tests (${parallel ? 'parallel' : 'serial'})...`);
 
-    // Register the real tool adapters — each shells out to its actual runner.
-    const plugins = require('./testforge-plugins');
-    const pluginConfig = { ...config, ...(config.pluginConfig || {}) };
-    this.framework.registerPlugin('playwright', new plugins.PlaywrightPlugin(pluginConfig));
-    this.framework.registerPlugin('rest-assured', new plugins.RestAssuredPlugin(pluginConfig));
-    this.framework.registerPlugin('k6', new plugins.K6Plugin(pluginConfig));
-    this.framework.registerPlugin('jmeter', new plugins.JMeterPlugin(pluginConfig));
-    this.framework.registerPlugin('browserstack', new plugins.BrowserStackPlugin(pluginConfig));
-    this.framework.registerPlugin('postman', new plugins.PostmanPlugin(pluginConfig));
+      // Register the real tool adapters — each shells out to its actual runner.
+      const plugins = require('./testforge-plugins');
+      const pluginConfig = { ...config, ...(config.pluginConfig || {}) };
+      this.framework.registerPlugin('playwright', new plugins.PlaywrightPlugin(pluginConfig));
+      this.framework.registerPlugin('rest-assured', new plugins.RestAssuredPlugin(pluginConfig));
+      this.framework.registerPlugin('k6', new plugins.K6Plugin(pluginConfig));
+      this.framework.registerPlugin('jmeter', new plugins.JMeterPlugin(pluginConfig));
+      this.framework.registerPlugin('browserstack', new plugins.BrowserStackPlugin(pluginConfig));
+      this.framework.registerPlugin('postman', new plugins.PostmanPlugin(pluginConfig));
 
-    // Run tests
-    const results = await this.framework.runTests(testCases, { parallel });
+      // Run tests
+      const results = await this.framework.runTests(testCases, { parallel });
 
-    // Analyze failures
-    if (results.some(r => r.status === 'failed')) {
-      await this.framework.analyzeFailures(results);
-    }
+      // Analyze failures
+      if (results.some(r => r.status === 'failed')) {
+        await this.framework.analyzeFailures(results);
+      }
 
-    // Generate report
-    await this.framework.generateReport(results);
+      // Generate report
+      await this.framework.generateReport(results);
 
-    console.log(`
+      console.log(`
 ✅ Test execution complete!
 
 📊 Results:
@@ -223,7 +247,10 @@ ${this.getTestCasesSummary(testCases)}
 📈 Reports:
    HTML: ./testforge-workspace/reports/test-report.html
    Markdown: ./testforge-workspace/reports/test-report.md
-    `);
+      `);
+    } finally {
+      this.setStatus('idle');
+    }
   }
 
   /**
